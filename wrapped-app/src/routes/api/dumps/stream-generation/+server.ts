@@ -9,12 +9,13 @@ export async function GET({ url, request }) {
         throw error(400, 'Missing params');
     }
 
+    const encoder = new TextEncoder();
     const stream = new ReadableStream({
         async start(controller) {
             let isClosed = false;
             const log = (msg: { text: string, type: 'info'|'success'|'error'|'done' }) => {
                 if (request.signal.aborted || isClosed) return;
-                try { controller.enqueue(`data: ${JSON.stringify(msg)}\n\n`); } catch(e) {}
+                try { controller.enqueue(encoder.encode(`data: ${JSON.stringify(msg)}\n\n`)); } catch(e) {}
             };
 
             try {
@@ -81,7 +82,9 @@ export async function GET({ url, request }) {
         headers: {
             'Content-Type': 'text/event-stream',
             'Cache-Control': 'no-cache',
-            'Connection': 'keep-alive'
+            'Connection': 'keep-alive',
+            'X-Accel-Buffering': 'no',
+            'Content-Encoding': 'none'
         }
     });
 }
