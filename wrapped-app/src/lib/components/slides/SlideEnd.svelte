@@ -1,6 +1,5 @@
 <script lang="ts">
-    import type { DumpInfo, User } from '$lib/types/dump';
-    export let user: User;
+    import type { DumpInfo } from '$lib/types/dump';
     export let dumpInfo: DumpInfo;
 </script>
 

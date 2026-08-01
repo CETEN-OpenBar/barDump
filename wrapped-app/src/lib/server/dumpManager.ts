@@ -40,6 +40,10 @@ export const dumpManager = {
         fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
     },
 
+    getProcessedDataPath(fileName: string): string {
+        return path.resolve(PROJECT_ROOT, PROCESSED_DATA_DIR, fileName);
+    },
+
     async exportData() {
         console.log('Exporting data from MongoDB via Go API...');
         const rawDataDir = path.resolve(PROJECT_ROOT, RAW_DATA_DIR);

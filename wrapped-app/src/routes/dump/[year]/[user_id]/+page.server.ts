@@ -1,9 +1,7 @@
 import { error } from '@sveltejs/kit';
 import * as fs from 'fs';
-import path from 'path';
 import { dumpManager } from '$lib/server/dumpManager';
 import type { AllData } from '$lib/types/dump';
-import { PROCESSED_DATA_DIR } from '$env/static/private';
 
 export const load = (({ params }) => {
     const userId = params.user_id;
@@ -17,8 +15,7 @@ export const load = (({ params }) => {
     }
 
     // On résout le chemin des données traitées
-    const PROJECT_ROOT = path.resolve(process.cwd(), '..');
-    const dataPath = path.resolve(PROJECT_ROOT, PROCESSED_DATA_DIR, dumpInfo.file);
+    const dataPath = dumpManager.getProcessedDataPath(dumpInfo.file);
 
     if (!fs.existsSync(dataPath)) {
         console.error(`Data file not found at: ${dataPath}`);
