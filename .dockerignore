@@ -1,0 +1,9 @@
+**/node_modules
+**/.svelte-kit
+**/build
+.env
+.env.*
+data
+backend/scripts/venv
+.git
+.ruff_cache
