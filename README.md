@@ -4,65 +4,67 @@ BarDump est une application web de type "Wrapped" (à l'instar de Spotify Wrappe
 
 Le projet s'appuie sur les données d'encaissement et de transactions d'une base MongoDB, génère des statistiques par utilisateur (total dépensé, produits favoris, volume d'achats mensuels, classement, etc.), et les expose sur une interface web fluide et animée.
 
-## 🏗 Architecture du Projet
+##  Architecture du Projet
 
 Ce dépôt est un monorepo comprenant deux parties principales :
 
-1. **Backend / Data Processing (Python)** :
-   Situé dans le dossier `backend/scripts`, ce module est responsable de la récupération et du traitement des données.
-   - `export_db.py` : Se connecte à la base MongoDB pour exporter les collections requises.
-   - `process_stats.py` : Ingère les transactions exportées, génère les classements et agrège les données de chaque utilisateur pour le rendu final.
+1. **Backend / Data Processing (Go API)** :
+   Situé dans le dossier `backend/go-api`, ce module est responsable de la récupération et du traitement massif des données, ainsi que de l'envoi des e-mails.
+   - `internal/handlers/` : Parse les requêtes HTTP envoyées par le backend SvelteKit.
+   - `internal/services/exporter.go` : Se connecte à la base MongoDB pour exporter les transactions et les comptes.
+   - `internal/services/processor.go` : Ingère les transactions exportées, génère les classements et agrège les données de chaque utilisateur pour le rendu final.
+   - `internal/services/mailer.go` : Gère l'envoi massif de mails via SMTP pour prévenir les utilisateurs avec un suivi de progression en SSE.
 
-2. **Frontend & API (SvelteKit)** :
+2. **Frontend & Admin API (SvelteKit)** :
    Situé dans le dossier `wrapped-app`.
    - **Vue Publique (`/dump/[year]/[user_id]`)** : L'interface utilisateur finale. Un carrousel plein écran affichant les statistiques de l'utilisateur sous forme de diapositives avec des transitions fluides.
-   - **Vue Admin (`/admin`)** : Interface de gestion permettant de créer de nouvelles campagnes ("dumps"), de définir les logos, et de déclencher manuellement les scripts de mise à jour des données (en faisant le pont avec les scripts Python).
+   - **Vue Admin (`/admin`)** : Interface de gestion permettant de créer de nouvelles campagnes ("dumps"), uploader des logos, et streamer (SSE) l'avancement des générations en faisant le pont avec l'API Go.
 
-## 🚀 Prérequis
+##  Prérequis
 
-- **Node.js** (v20+) & `npm` ou `pnpm`
-- **Python** (3.8+)
+- **Node.js** (v20+) & `npm`
+- **Go** (1.21+)
 - **MongoDB** (Accès à la base de données source du bar)
-- **Docker** (Optionnel, pour le déploiement)
+- **Docker** (Optionnel, fortement recommandé pour le déploiement)
 
 ## 🛠 Variables d'Environnement
 
-Pour des raisons de sécurité, les identifiants de la base de données ne sont pas inclus dans le code. Vous devez définir la variable d'environnement suivante avant d'exécuter l'extraction des données :
+Le projet utilise un fichier `.env` situé dans `wrapped-app/.env` (qui est aussi lu par l'API Go en développement local). 
 
 ```bash
 MONGODB_URI="mongodb://utilisateur:motdepasse@hote:port/?authSource=database"
 MONGODB_DB_NAME="nom_de_la_base" # "bar" par défaut
 ORIGIN=http://localhost:3000
+SMTP_EMAIL="votre_adresse_mail@gmail.com"
+SMTP_PASSWORD="votre_mot_de_passe_d_application"
+BASE_URL="https://votre-domaine.fr"
 ```
 
-## 💻 Développement Local
+##  Développement Local
 
-### 1. Préparation du Backend (Python)
+### 1. Démarrage de l'API Go
 
 ```bash
-cd backend/scripts
-# Création d'un environnement virtuel (recommandé)
-python3 -m venv venv
-source venv/bin/activate
-# Installation des dépendances
-pip install -r requirements.txt
+cd backend/go-api
+go mod download
+go run ./cmd/server
 ```
+L'API Go démarrera sur `http://localhost:8080`.
 
-### 2. Démarrage de l'Application (SvelteKit)
+### 2. Démarrage de l'Application SvelteKit
 
+Dans un nouveau terminal :
 ```bash
 cd wrapped-app
-# Installation des dépendances du frontend
 npm install
-# Lancement du serveur de développement
 npm run dev
 ```
 
-L'application sera accessible sur `http://localhost:5173`. Vous pouvez ensuite accéder à la page d'administration via `http://localhost:5173/admin` pour uploader vos logos et générer un dump.
+L'application sera accessible sur `http://localhost:5173`. L'administration se trouve sur `/admin`.
 
-## 🐳 Déploiement avec Docker
+##  Déploiement avec Docker
 
-Le projet inclut un `Dockerfile` multi-stage, optimisé pour la production. Il compile l'application SvelteKit puis crée une image Node.js enrichie d'un environnement Python pour exécuter les scripts de traitement de données.
+Le projet inclut un `Dockerfile` multi-stage. Il compile l'API Go puis l'application SvelteKit dans une image légère basée sur Node.
 
 1. **Construire l'image :**
 ```bash
@@ -74,34 +76,36 @@ docker build -t bardump .
 docker run -d \
   -p 3000:3000 \
   -e MONGODB_URI="votre_uri_mongo" \
+  -e SMTP_EMAIL="votre_mail" \
+  -e SMTP_PASSWORD="votre_password" \
   -v $(pwd)/data:/app/data \
   --name bardump-app \
   bardump
 ```
 
-Les données (fichiers JSON bruts et traités) seront stockées dans le dossier `/app/data` (mappé au dossier local `./data` pour la persistance).
+L'application expose automatiquement le port `3000`. Les données générées (les statistiques json et les configurations) seront stockées dans le dossier `/app/data` (mappé au dossier local `./data` pour la persistance).
 
-## 🗂 Structure du Dépôt
+##  Structure du Dépôt
 
-```
+```text
 .
-├── Dockerfile                  # Configuration pour le déploiement
+├── Dockerfile                  # Configuration pour le build multi-stage Docker (Go + Node)
+├── docker-compose.yml          # Modèle optionnel pour le déploiement
 ├── README.md                   # Ce fichier
 ├── backend/
-│   └── scripts/
-│       ├── requirements.txt    # Dépendances Python (pymongo, etc.)
-│       ├── export_db.py        # Extraction depuis MongoDB
-│       └── process_stats.py    # Logique de calcul des statistiques
+│   └── go-api/
+│       ├── cmd/server/main.go  # Entrée du serveur Echo (Port 8080)
+│       └── internal/           # Logique d'export, de processing et d'emails (SSE)
 └── wrapped-app/
     ├── package.json
     ├── svelte.config.js
-    ├── tailwind.config.ts      # Configuration du framework CSS
+    ├── tailwind.config.ts      
     ├── static/                 # Fichiers statiques et logos
     └── src/
         ├── lib/
         │   └── components/     # Composants Svelte (les Slides du Wrapped)
         └── routes/
-            ├── admin/          # Dashboard d'administration
-            ├── api/            # API backend Node.js
+            ├── admin/          # Dashboard d'administration (Appels SSE vers /api/dumps)
+            ├── api/            # Routeurs proxy SvelteKit -> API Go
             └── dump/           # Vue principale (le Wrapped)
 ```
