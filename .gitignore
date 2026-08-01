@@ -219,3 +219,5 @@ data/raw/*
 
 data/email_sent*
 data/mail_template.html
+
+data/dumps_config.json

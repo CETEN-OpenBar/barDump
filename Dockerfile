@@ -40,22 +40,10 @@ COPY --from=svelte-builder /app/wrapped-app/node_modules /app/wrapped-app/node_m
 # Copy the built Go API
 COPY --from=go-builder /app/go-api/bardump-api /app/backend/go-api/bardump-api
 
-# The dumpManager script relies on wrapped-app/static for logos and wrapped-app/src/lib/data/dumps_config.json for config
-COPY wrapped-app/static /app/wrapped-app/static
-COPY wrapped-app/src/lib/data/dumps_config.json /app/wrapped-app/src/lib/data/dumps_config.json
-
 # Create data directories so they exist, even if not mounted
-RUN mkdir -p /app/data/raw /app/data/processed
+RUN mkdir -p /app/data/raw /app/data/processed /app/wrapped-app/static
 
-# Set environment variables expected by the Svelte backend
-ENV RAW_DATA_DIR=data/raw
-ENV PROCESSED_DATA_DIR=data/processed
-ENV CONFIG_FILE=wrapped-app/src/lib/data/dumps_config.json
 ENV BODY_SIZE_LIMIT=52428800
-
-# Listen on all network interfaces
-ENV HOST=0.0.0.0
-ENV PORT=3000
 
 EXPOSE 3000
 EXPOSE 8080

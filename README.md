@@ -79,6 +79,7 @@ docker run -d \
   -e SMTP_EMAIL="votre_mail" \
   -e SMTP_PASSWORD="votre_password" \
   -v $(pwd)/data:/app/data \
+  -v $(pwd)/static:/app/wrapped-app/static \
   --name bardump-app \
   bardump
 ```
