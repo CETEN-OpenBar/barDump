@@ -13,6 +13,16 @@ export async function GET({ url, request }) {
     const stream = new ReadableStream({
         async start(controller) {
             let isClosed = false;
+            
+            // Keep-alive ping to prevent proxy/Ingress timeouts
+            const pingInterval = setInterval(() => {
+                if (request.signal.aborted || isClosed) {
+                    clearInterval(pingInterval);
+                    return;
+                }
+                try { controller.enqueue(encoder.encode(': ping\n\n')); } catch(e) {}
+            }, 15000);
+
             const log = (msg: { text: string, type: 'info'|'success'|'error'|'done' }) => {
                 if (request.signal.aborted || isClosed) return;
                 try { controller.enqueue(encoder.encode(`data: ${JSON.stringify(msg)}\n\n`)); } catch(e) {}
