@@ -52,11 +52,6 @@ func ExportData(outputDir string) error {
 			return err
 		}
 
-		var results []bson.M
-		if err = cur.All(context.Background(), &results); err != nil {
-			return err
-		}
-
 		filePath := filepath.Join(outputDir, fmt.Sprintf("%s.json", colName))
 		tmpFilePath := filePath + ".tmp"
 
@@ -65,9 +60,30 @@ func ExportData(outputDir string) error {
 			return err
 		}
 
-		encoder := json.NewEncoder(file)
-		encoder.SetIndent("", "    ")
-		if err := encoder.Encode(results); err != nil {
+		file.WriteString("[\n")
+		first := true
+		for cur.Next(context.Background()) {
+			if !first {
+				file.WriteString(",\n")
+			}
+			first = false
+
+			var result bson.M
+			if err := cur.Decode(&result); err != nil {
+				file.Close()
+				return err
+			}
+
+			b, err := json.Marshal(result)
+			if err != nil {
+				file.Close()
+				return err
+			}
+			file.Write(b)
+		}
+		file.WriteString("\n]")
+
+		if err := cur.Err(); err != nil {
 			file.Close()
 			return err
 		}

@@ -72,41 +72,54 @@ func ProcessTransactions(inputFile, outputFile, accountsFile, startDateStr, endD
 		endDate, _ = time.Parse("2006-01-02", endDateStr)
 	}
 
-	// Read transactions
-	dataBytes, err := os.ReadFile(inputFile)
-	if err != nil {
-		return fmt.Errorf("read transactions: %w", err)
-	}
-	var transactions []M
-	if err := json.Unmarshal(dataBytes, &transactions); err != nil {
-		return fmt.Errorf("unmarshal transactions: %w", err)
-	}
-
 	// Read accounts mapping
 	emailMapping := make(map[string]string)
 	if accountsFile != "" {
-		accBytes, err := os.ReadFile(accountsFile)
+		accFile, err := os.Open(accountsFile)
 		if err == nil {
-			var accounts []M
-			if err := json.Unmarshal(accBytes, &accounts); err == nil {
-				for _, acc := range accounts {
-					accIDVal := parseMongoDBValue(acc["id"])
-					emailVal := acc["email_address"]
+			decoder := json.NewDecoder(accFile)
+			if t, err := decoder.Token(); err == nil {
+				if d, ok := t.(json.Delim); ok && d == '[' {
+					for decoder.More() {
+						var acc M
+						if err := decoder.Decode(&acc); err == nil {
+							accIDVal := parseMongoDBValue(acc["id"])
+							emailVal := acc["email_address"]
 
-					accID, ok1 := accIDVal.(string)
-					email, ok2 := emailVal.(string)
+							accID, ok1 := accIDVal.(string)
+							email, ok2 := emailVal.(string)
 
-					if ok1 && ok2 && accID != "" && email != "" {
-						emailMapping[accID] = email
+							if ok1 && ok2 && accID != "" && email != "" {
+								emailMapping[accID] = email
+							}
+						}
 					}
 				}
 			}
+			accFile.Close()
 		}
 	}
 
 	userStats := make(map[string]*UserStats)
 
-	for _, tx := range transactions {
+	txFile, err := os.Open(inputFile)
+	if err != nil {
+		return fmt.Errorf("open transactions: %w", err)
+	}
+	defer txFile.Close()
+
+	txDecoder := json.NewDecoder(txFile)
+	if t, err := txDecoder.Token(); err != nil {
+		return fmt.Errorf("read transactions token: %w", err)
+	} else if d, ok := t.(json.Delim); !ok || d != '[' {
+		return fmt.Errorf("expected opening bracket")
+	}
+
+	for txDecoder.More() {
+		var tx M
+		if err := txDecoder.Decode(&tx); err != nil {
+			return fmt.Errorf("decode transaction: %w", err)
+		}
 		if state, _ := tx["state"].(string); state != "finished" {
 			continue
 		}
