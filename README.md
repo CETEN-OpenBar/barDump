@@ -35,6 +35,8 @@ Le projet utilise un fichier `.env` situé dans `wrapped-app/.env` (qui est auss
 MONGODB_URI="mongodb://utilisateur:motdepasse@hote:port/?authSource=database"
 MONGODB_DB_NAME="nom_de_la_base" # "bar" par défaut
 ORIGIN=http://localhost:3000
+SMTP_HOST="smtp.gmail.com"
+SMTP_PORT="587"
 SMTP_EMAIL="votre_adresse_mail@gmail.com"
 SMTP_PASSWORD="votre_mot_de_passe_d_application"
 BASE_URL="https://votre-domaine.fr"

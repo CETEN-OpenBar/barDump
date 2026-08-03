@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -11,8 +12,8 @@ import (
 	"time"
 )
 
-func sendHTMLEmail(senderEmail, senderPassword, receiverEmail, subject, htmlBody string) error {
-	auth := smtp.PlainAuth("", senderEmail, senderPassword, "smtp.gmail.com")
+func sendHTMLEmail(host, port, senderEmail, senderPassword, receiverEmail, subject, htmlBody string) error {
+	auth := smtp.PlainAuth("", senderEmail, senderPassword, host)
 
 	msg := []byte("To: " + receiverEmail + "\r\n" +
 		"From: " + senderEmail + "\r\n" +
@@ -20,8 +21,55 @@ func sendHTMLEmail(senderEmail, senderPassword, receiverEmail, subject, htmlBody
 		"Content-Type: text/html; charset=UTF-8\r\n\r\n" +
 		htmlBody)
 
+	addr := host + ":" + port
 
-	err := smtp.SendMail("smtp.gmail.com:587", auth, senderEmail, []string{receiverEmail}, msg)
+	if port == "465" {
+		tlsconfig := &tls.Config{
+			ServerName: host,
+		}
+
+		conn, err := tls.Dial("tcp", addr, tlsconfig)
+		if err != nil {
+			return err
+		}
+		defer conn.Close()
+
+		c, err := smtp.NewClient(conn, host)
+		if err != nil {
+			return err
+		}
+
+		if err = c.Auth(auth); err != nil {
+			return err
+		}
+
+		if err = c.Mail(senderEmail); err != nil {
+			return err
+		}
+
+		if err = c.Rcpt(receiverEmail); err != nil {
+			return err
+		}
+
+		w, err := c.Data()
+		if err != nil {
+			return err
+		}
+
+		_, err = w.Write(msg)
+		if err != nil {
+			return err
+		}
+
+		err = w.Close()
+		if err != nil {
+			return err
+		}
+
+		return c.Quit()
+	}
+
+	err := smtp.SendMail(addr, auth, senderEmail, []string{receiverEmail}, msg)
 	if err != nil {
 		log.Printf("Failed to send email to %s: %v", receiverEmail, err)
 		return err
@@ -44,6 +92,16 @@ func ProcessAndSendEmails(ctx context.Context, accountsFile, dumpID string, debu
 	if senderEmail == "" || senderPassword == "" {
 		sendLog("Erreur: Les variables d'environnement SMTP_EMAIL et SMTP_PASSWORD doivent être définies.")
 		return
+	}
+
+	smtpHost := strings.TrimSpace(strings.Trim(os.Getenv("SMTP_HOST"), "\"'"))
+	if smtpHost == "" {
+		smtpHost = "smtp.gmail.com"
+	}
+
+	smtpPort := strings.TrimSpace(strings.Trim(os.Getenv("SMTP_PORT"), "\"'"))
+	if smtpPort == "" {
+		smtpPort = "587"
 	}
 
 	baseURL := os.Getenv("BASE_URL")
@@ -162,7 +220,7 @@ func ProcessAndSendEmails(ctx context.Context, accountsFile, dumpID string, debu
 		if debugMode {
 			subject = "[DEBUG] " + subject
 		}
-		err := sendHTMLEmail(senderEmail, senderPassword, targetEmail, subject, htmlBody)
+		err := sendHTMLEmail(smtpHost, smtpPort, senderEmail, senderPassword, targetEmail, subject, htmlBody)
 		if err == nil {
 			sendLog(fmt.Sprintf("Email sent successfully to %s", email))
 			if !debugMode {
