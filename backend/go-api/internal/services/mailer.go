@@ -155,11 +155,50 @@ func ProcessAndSendEmails(ctx context.Context, accountsFile, dumpID string, debu
 		return
 	}
 
-	logo1Url := os.Getenv("LOGO1_URL")
-	if logo1Url == "" {
-		logo1Url = baseURL + "/logo.png"
+	type DumpConfig struct {
+		Logo1 string `json:"logo1"`
+		Logo2 string `json:"logo2"`
 	}
-	logo2Url := os.Getenv("LOGO2_URL")
+	type ConfigFileStruct struct {
+		Dumps map[string]DumpConfig `json:"dumps"`
+	}
+
+	configFile := os.Getenv("CONFIG_FILE")
+	if configFile == "" {
+		configFile = "../../data/dumps_config.json"
+	}
+
+	logo1Url := baseURL + "/logo.png"
+	logo2Url := ""
+
+	if configData, err := os.ReadFile(configFile); err == nil {
+		var cfg ConfigFileStruct
+		if err := json.Unmarshal(configData, &cfg); err == nil {
+			if dumpData, exists := cfg.Dumps[dumpID]; exists {
+				if dumpData.Logo1 != "" {
+					// ensure the logo path starts with a slash
+					if !strings.HasPrefix(dumpData.Logo1, "/") {
+						dumpData.Logo1 = "/" + dumpData.Logo1
+					}
+					logo1Url = baseURL + dumpData.Logo1
+				}
+				if dumpData.Logo2 != "" {
+					if !strings.HasPrefix(dumpData.Logo2, "/") {
+						dumpData.Logo2 = "/" + dumpData.Logo2
+					}
+					logo2Url = baseURL + dumpData.Logo2
+				}
+			}
+		}
+	}
+
+	// Allow overriding with env variables if explicitly set
+	if envLogo1 := os.Getenv("LOGO1_URL"); envLogo1 != "" {
+		logo1Url = envLogo1
+	}
+	if envLogo2 := os.Getenv("LOGO2_URL"); envLogo2 != "" {
+		logo2Url = envLogo2
+	}
 
 	var logosHtml string
 	if logo1Url != "" && logo2Url != "" {
