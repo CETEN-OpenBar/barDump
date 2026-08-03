@@ -13,6 +13,8 @@ import (
 type MailRequest struct {
 	AccountsFile string `json:"accounts_file"`
 	DumpID       string `json:"dump_id"`
+	DebugMode    bool   `json:"debug_mode"`
+	DebugEmail   string `json:"debug_email"`
 }
 
 func SendEmailsHandler(c echo.Context) error {
@@ -26,7 +28,7 @@ func SendEmailsHandler(c echo.Context) error {
 	c.Response().Header().Set("Connection", "keep-alive")
 
 	logChan := make(chan string)
-	go services.ProcessAndSendEmails(c.Request().Context(), req.AccountsFile, req.DumpID, logChan)
+	go services.ProcessAndSendEmails(c.Request().Context(), req.AccountsFile, req.DumpID, req.DebugMode, req.DebugEmail, logChan)
 
 	// Set status code to 200 explicitly before flushing
 	c.Response().WriteHeader(http.StatusOK)

@@ -30,7 +30,7 @@ func sendHTMLEmail(senderEmail, senderPassword, receiverEmail, subject, htmlBody
 	return nil
 }
 
-func ProcessAndSendEmails(ctx context.Context, accountsFile, dumpID string, logChan chan string) {
+func ProcessAndSendEmails(ctx context.Context, accountsFile, dumpID string, debugMode bool, debugEmail string, logChan chan string) {
 	defer close(logChan)
 	sendLog := func(msg string) {
 		log.Println(msg)
@@ -136,9 +136,19 @@ func ProcessAndSendEmails(ctx context.Context, accountsFile, dumpID string, logC
 			continue
 		}
 
-		if sentUsersMap[accountID] {
+		if sentUsersMap[accountID] && !debugMode {
 			sendLog(fmt.Sprintf("Skipping %s (%s) - Email déjà envoyé.", email, accountID))
 			continue
+		}
+
+		targetEmail := email
+		if debugMode {
+			if debugEmail == "" {
+				sendLog("Erreur: debugEmail est vide mais debugMode est activé.")
+				continue
+			}
+			targetEmail = debugEmail
+			sendLog(fmt.Sprintf("[DEBUG MODE] Envoi de l'email pour %s vers %s", email, targetEmail))
 		}
 
 		dumpLink := fmt.Sprintf("%s/dump/%s/%s", baseURL, dumpID, accountID)
@@ -148,18 +158,24 @@ func ProcessAndSendEmails(ctx context.Context, accountsFile, dumpID string, logC
 		htmlBody = strings.ReplaceAll(htmlBody, "{base_url}", baseURL)
 		htmlBody = strings.ReplaceAll(htmlBody, "{logos_html}", logosHtml)
 		//ne retire pas l'adresse en brut
-		err := sendHTMLEmail(senderEmail, senderPassword, email, "[BAR] Le BarDump est enfin arrivé !", htmlBody)
+		subject := "[BAR] Le BarDump est enfin arrivé !"
+		if debugMode {
+			subject = "[DEBUG] " + subject
+		}
+		err := sendHTMLEmail(senderEmail, senderPassword, targetEmail, subject, htmlBody)
 		if err == nil {
 			sendLog(fmt.Sprintf("Email sent successfully to %s", email))
-			sentUsersMap[accountID] = true
-			var updatedSentUsers []string
-			for k := range sentUsersMap {
-				updatedSentUsers = append(updatedSentUsers, k)
+			if !debugMode {
+				sentUsersMap[accountID] = true
+				var updatedSentUsers []string
+				for k := range sentUsersMap {
+					updatedSentUsers = append(updatedSentUsers, k)
+				}
+				outBytes, _ := json.Marshal(updatedSentUsers)
+				os.WriteFile(trackingFile, outBytes, 0644)
 			}
-			outBytes, _ := json.Marshal(updatedSentUsers)
-			os.WriteFile(trackingFile, outBytes, 0644)
 		} else {
-			sendLog(fmt.Sprintf("Failed to send email to %s: %v", email, err))
+			sendLog(fmt.Sprintf("Failed to send email to %s: %v", targetEmail, err))
 		}
 
 		time.Sleep(2 * time.Second)

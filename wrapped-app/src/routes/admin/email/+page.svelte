@@ -9,6 +9,8 @@
     let errorMessage = '';
     let templateSuccessMessage = '';
     let currentEventSource: EventSource | null = null;
+    let debugMode = false;
+    let debugEmail = '';
 
     async function loadConfig() {
         const res = await fetch('/api/dumps');
@@ -55,7 +57,7 @@
         errorMessage = '';
         logs = [];
         
-        const eventSource = new EventSource(`/api/dumps/stream-emails?id=${id}`);
+        const eventSource = new EventSource(`/api/dumps/stream-emails?id=${id}&debug_mode=${debugMode}&debug_email=${encodeURIComponent(debugEmail)}`);
         currentEventSource = eventSource;
         
         eventSource.onmessage = (event) => {
@@ -173,6 +175,21 @@
                         {errorMessage}
                     </div>
                 {/if}
+
+                <div class="mb-6 p-4 bg-gray-700/50 rounded-lg border border-gray-600">
+                    <label class="flex items-center space-x-3 mb-3 cursor-pointer">
+                        <input type="checkbox" bind:checked={debugMode} class="form-checkbox h-5 w-5 text-blue-600 bg-gray-800 border-gray-600 rounded focus:ring-blue-500 focus:ring-opacity-25" />
+                        <span class="text-gray-200 font-semibold">Activer le Mode Debug</span>
+                    </label>
+                    
+                    {#if debugMode}
+                        <div class="ml-8">
+                            <label class="block text-sm text-gray-400 mb-1" for="debug-email">Adresse e-mail de debug :</label>
+                            <input type="email" id="debug-email" bind:value={debugEmail} placeholder="dev@example.com" class="w-full bg-gray-900 text-gray-300 p-2 rounded border border-gray-700 focus:border-blue-500 focus:outline-none" />
+                            <p class="text-xs text-yellow-400 mt-2">Attention : Tous les emails générés seront envoyés à cette adresse au lieu des vrais destinataires.</p>
+                        </div>
+                    {/if}
+                </div>
 
                 <div class="space-y-4">
                     {#each Object.entries(config.dumps) as [id, dump]}

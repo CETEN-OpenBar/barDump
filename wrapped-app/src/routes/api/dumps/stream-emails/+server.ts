@@ -3,6 +3,8 @@ import { error } from '@sveltejs/kit';
 
 export async function GET({ url, request }) {
     const id = url.searchParams.get('id');
+    const debugMode = url.searchParams.get('debug_mode') === 'true';
+    const debugEmail = url.searchParams.get('debug_email') || '';
     
     if (!id) {
         throw error(400, 'Missing dump id');
@@ -21,7 +23,7 @@ export async function GET({ url, request }) {
                 try { controller.enqueue(': ping\n\n'); } catch(e) {}
             }, 15000);
 
-            dumpManager.sendEmailsStream(id, (msg) => {
+            dumpManager.sendEmailsStream(id, debugMode, debugEmail, (msg) => {
                 if (request.signal.aborted || isClosed) return;
                 try { controller.enqueue(`data: ${JSON.stringify(msg)}\n\n`); } catch(e) {}
             }, request.signal).then(() => {

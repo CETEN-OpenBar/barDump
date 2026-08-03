@@ -90,14 +90,14 @@ export const dumpManager = {
         return `transactions_${params.id}.json`;
     },
 
-    async sendEmails(dumpId: string) {
+    async sendEmails(dumpId: string, debugMode: boolean = false, debugEmail: string = '') {
         return new Promise((resolve, reject) => {
-            this.sendEmailsStream(dumpId, () => {}).then(resolve).catch(reject);
+            this.sendEmailsStream(dumpId, debugMode, debugEmail, () => {}).then(resolve).catch(reject);
         });
     },
 
-    async sendEmailsStream(dumpId: string, onMessage: (msg: { text: string, type: 'info'|'success'|'error' }) => void, signal?: AbortSignal) {
-        console.log(`Sending emails for dump ${dumpId} via Go API...`);
+    async sendEmailsStream(dumpId: string, debugMode: boolean, debugEmail: string, onMessage: (msg: { text: string, type: 'info'|'success'|'error' }) => void, signal?: AbortSignal) {
+        console.log(`Sending emails for dump ${dumpId} via Go API (debugMode=${debugMode}, debugEmail=${debugEmail})...`);
         const config = this.getConfig();
         const dump = config.dumps[dumpId];
         if (!dump) throw new Error('Dump not found');
@@ -111,7 +111,9 @@ export const dumpManager = {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 accounts_file: accountsFile,
-                dump_id: dumpId
+                dump_id: dumpId,
+                debug_mode: debugMode,
+                debug_email: debugEmail
             }),
             signal
         });
