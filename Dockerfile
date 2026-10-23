@@ -1,5 +1,5 @@
 # First stage: Build Svelte App
-FROM node:20-alpine AS svelte-builder
+FROM node:24-alpine AS svelte-builder
 
 WORKDIR /app
 
@@ -26,7 +26,7 @@ COPY backend/go-api .
 RUN go build -o bardump-api ./cmd/server
 
 # Third stage: final runtime image
-FROM node:20-alpine
+FROM node:24-alpine
 
 WORKDIR /app
 
